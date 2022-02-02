@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
@@ -8,15 +9,17 @@ import 'package:file_picker/file_picker.dart';
 import 'package:appwrite/models.dart';
 
 void main() {
-  Client client = Client();
+  WidgetsFlutterBinding.ensureInitialized();
+
+  Client client = Client(selfSigned: true);
   Account account = Account(client);
   Storage storage = Storage(client);
   Database database = Database(client);
 
   client
           .setEndpoint(
-              'https://localhost/v1') // Make sure your endpoint is accessible from your emulator, use IP if needed
-          .setProject('[YOUR PROJECT ID]') // Your project ID
+              'https://10.0.2.2/v1') // Make sure your endpoint is accessible from your emulator, use IP if needed
+          .setProject('61f9413dc415a84eef09') // Your project ID
           .setSelfSigned() // Do not use this in production
       ;
 
@@ -31,11 +34,7 @@ void main() {
 }
 
 class Playground extends StatefulWidget {
-  Playground(
-      {required this.client,
-      required this.account,
-      required this.storage,
-      required this.database});
+  Playground({required this.client, required this.account, required this.storage, required this.database});
   final Client client;
   final Account account;
   final Storage storage;
@@ -78,16 +77,13 @@ class PlaygroundState extends State<Playground> {
   }
 
   _uploadFile() {
-    FilePicker.platform
-        .pickFiles(type: FileType.image, allowMultiple: false)
-        .then((response) {
+    FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: false).then((response) {
       if (response == null) return;
       final file = response.files.single;
       if (!kIsWeb) {
         final path = file.path;
         if (path == null) return;
-        MultipartFile.fromPath('file', path, filename: file.name)
-            .then((response) {
+        MultipartFile.fromPath('file', path, filename: file.name).then((response) {
           widget.storage.createFile(
               fileId: "unique()",
               file: response,
@@ -106,8 +102,7 @@ class PlaygroundState extends State<Playground> {
       } else {
         if (file.bytes == null) return;
         List<int>? bytes = file.bytes?.map((i) => i).toList();
-        final uploadFile =
-            MultipartFile.fromBytes('file', bytes!, filename: file.name);
+        final uploadFile = MultipartFile.fromBytes('file', bytes!, filename: file.name);
         widget.storage.createFile(
           fileId: "unique()",
           file: uploadFile,
@@ -129,12 +124,13 @@ class PlaygroundState extends State<Playground> {
 
   _subscribe() {
     final realtime = Realtime(widget.client);
-    subscription = realtime.subscribe(['files', 'documents']);
+    subscription = realtime.subscribe(['users', 'files', 'documents']);
     setState(() {});
     subscription!.stream.listen((data) {
       print(data);
       setState(() {
         realtimeEvent = jsonEncode(data.toMap());
+        log(realtimeEvent.toString());
       });
     });
   }
@@ -149,9 +145,7 @@ class PlaygroundState extends State<Playground> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-          title: Text("Appwrite + Flutter = ❤️"),
-          backgroundColor: Colors.pinkAccent[200]),
+      appBar: AppBar(title: Text("Appwrite + Flutter = ❤️"), backgroundColor: Colors.pinkAccent[200]),
       body: Container(
         child: SingleChildScrollView(
           child: Column(
@@ -187,10 +181,7 @@ class PlaygroundState extends State<Playground> {
                     minimumSize: Size(280, 50),
                   ),
                   onPressed: () {
-                    widget.account
-                        .createSession(
-                            email: 'user@appwrite.io', password: 'password')
-                        .then((value) {
+                    widget.account.createSession(email: 'user@appwrite.io', password: 'password').then((value) {
                       print(value.toMap());
                       _getAccount();
                     }).catchError((error) {
@@ -228,14 +219,13 @@ class PlaygroundState extends State<Playground> {
                   onPressed: () {
                     widget.database
                         .createDocument(
-                            collectionId:
-                                'usernames', //change your collection id
+                            collectionId: 'usernames', //change your collection id
                             documentId: 'unique()',
-                            data: {'username': 'hello2'},
+                            data: {'username': 'hello2', 'enable': true},
                             read: ['role:all'],
                             write: ['role:all'])
-                        .then((value) => value.convertTo<MyDocument>((map) =>
-                            MyDocument.fromMap(Map<String, dynamic>.from(map))))
+                        .then((value) =>
+                            value.convertTo<MyDocument>((map) => MyDocument.fromMap(Map<String, dynamic>.from(map))))
                         .then((value) => print(value.userName))
                         .catchError((error) {
                           print(error.message);
@@ -269,8 +259,7 @@ class PlaygroundState extends State<Playground> {
                       print(e.message);
                     }
                   },
-                  child: Text("Generate JWT",
-                      style: TextStyle(color: Colors.white, fontSize: 20.0))),
+                  child: Text("Generate JWT", style: TextStyle(color: Colors.white, fontSize: 20.0))),
               const SizedBox(height: 20.0),
               if (jwt != null) ...[
                 SelectableText(
@@ -291,9 +280,7 @@ class PlaygroundState extends State<Playground> {
                   ),
                   onPressed: () {
                     widget.account
-                        .createOAuth2Session(
-                            provider: 'discord',
-                            success: 'http://localhost:43663/auth.html')
+                        .createOAuth2Session(provider: 'discord', success: 'http://localhost:43663/auth.html')
                         .then((value) {
                       _getAccount();
                     }).catchError((error) {
@@ -312,10 +299,7 @@ class PlaygroundState extends State<Playground> {
                     minimumSize: Size(280, 50),
                   ),
                   onPressed: () {
-                    widget.account
-                        .createOAuth2Session(
-                            provider: 'github', success: '', failure: '')
-                        .then((value) {
+                    widget.account.createOAuth2Session(provider: 'github', success: '', failure: '').then((value) {
                       _getAccount();
                     }).catchError((error) {
                       print(error.message);
@@ -333,9 +317,7 @@ class PlaygroundState extends State<Playground> {
                     minimumSize: Size(280, 50),
                   ),
                   onPressed: () {
-                    widget.account
-                        .createOAuth2Session(provider: 'google')
-                        .then((value) {
+                    widget.account.createOAuth2Session(provider: 'google').then((value) {
                       _getAccount();
                     }).catchError((error) {
                       print(error.message);
@@ -360,23 +342,19 @@ class PlaygroundState extends State<Playground> {
               Padding(padding: EdgeInsets.all(20.0)),
               Divider(),
               Padding(padding: EdgeInsets.all(20.0)),
-              Text(username,
-                  style: TextStyle(color: Colors.black, fontSize: 20.0)),
+              Text(username, style: TextStyle(color: Colors.black, fontSize: 20.0)),
               Padding(padding: EdgeInsets.all(20.0)),
               Divider(),
               Padding(padding: EdgeInsets.all(20.0)),
               ElevatedButton(
-                  child: Text('Logout',
-                      style: TextStyle(color: Colors.white, fontSize: 20.0)),
+                  child: Text('Logout', style: TextStyle(color: Colors.white, fontSize: 20.0)),
                   style: ElevatedButton.styleFrom(
                     primary: Colors.red[700],
                     padding: const EdgeInsets.all(16),
                     minimumSize: Size(280, 50),
                   ),
                   onPressed: () {
-                    widget.account
-                        .deleteSession(sessionId: 'current')
-                        .then((response) {
+                    widget.account.deleteSession(sessionId: 'current').then((response) {
                       setState(() {
                         username = 'No Session';
                       });
@@ -417,8 +395,7 @@ class MyDocument {
 
   String toJson() => json.encode(toMap());
 
-  factory MyDocument.fromJson(String source) =>
-      MyDocument.fromMap(json.decode(source));
+  factory MyDocument.fromJson(String source) => MyDocument.fromMap(json.decode(source));
 
   @override
   String toString() => 'MyDocument(userName: $userName, id: $id)';
